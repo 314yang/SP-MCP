@@ -417,6 +417,9 @@ class SuperProductivityMCPServer:
         Note: SP uses IndexedDB without indexes on tagIds/projectId, so filtering
         is always O(n) whether done in SP or here. We filter server-side to reduce
         context usage when working with large task lists.
+
+        TODO: Migrate filtering to plugin-side when SP PluginAPI supports filtered queries.
+        See: https://github.com/organicmoron/SP-MCP/issues/5
         """
         result = await self.send_command("getTasks")
 
