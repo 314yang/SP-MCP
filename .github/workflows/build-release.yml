@@ -1,0 +1,54 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          pip install mcp
+          
+      - name: Package plugin files
+        run: |
+          mkdir -p release
+          
+          # Create superp-mcp-plugin.zip with plugin files
+          zip -j release/superp-mcp-plugin.zip manifest.json plugin.js
+          
+          # Check if index.html exists and include it
+          if [ -f index.html ]; then
+            zip -j release/superp-mcp-plugin.zip index.html
+            echo "Including index.html in plugin package"
+          fi
+          
+          # List packaged files
+          ls -la release/
+          
+      - name: Copy mcp_server.py
+        run: |
+          cp mcp_server.py release/
+          ls -la release/
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/mcp_server.py
+            release/superp-mcp-plugin.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
