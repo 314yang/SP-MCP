@@ -450,6 +450,17 @@ class MCPBridgePlugin {
         case 'getTasks':
           result = await PluginAPI.getTasks();
           break;
+        
+        case 'getTask':
+          try {
+            const taskId = command.taskId;
+            const allTasks = await PluginAPI.getTasks();
+            const task = allTasks.find(t => t.id === taskId);
+            result = task || null;
+          } catch (error) {
+            result = { error: error.message };
+          }
+          break;
           
         case 'getArchivedTasks':
           result = await PluginAPI.getArchivedTasks();
@@ -490,15 +501,48 @@ class MCPBridgePlugin {
           result = await PluginAPI.updateTask(command.taskId, command.data);
           break;
           
+        case 'deleteTasks':
         case 'deleteTask':
         case 'removeTask':
-          // Task deletion is not supported via Plugin API
-          // We can only archive tasks by marking them as done and moving to archive
-          result = { 
-            success: false, 
-            error: 'Task deletion not supported. Use updateTask to mark as done instead.',
-            suggestion: 'Use updateTask with {isDone: true} to complete the task'
-          };
+        case 'deleteCompletedTasks':
+        case 'removeCompletedTasks':
+        case 'clearAllTasks':
+          try {
+            let tasksToDelete = [];
+            
+            if (command.clearAll) {
+              tasksToDelete = await PluginAPI.getTasks();
+            } else if (command.taskIds && Array.isArray(command.taskIds)) {
+              const allTasks = await PluginAPI.getTasks();
+              tasksToDelete = allTasks.filter(t => command.taskIds.includes(t.id));
+            } else if (command.taskId) {
+              tasksToDelete = [{ id: command.taskId }];
+            } else {
+              const allTasks = await PluginAPI.getTasks();
+              tasksToDelete = allTasks.filter(t => t.isDone === true);
+            }
+            
+            const deleteResults = [];
+            for (const task of tasksToDelete) {
+              try {
+                await PluginAPI.deleteTask(task.id);
+                deleteResults.push({ 
+                  id: task.id, 
+                  title: task.title || task.id, 
+                  success: true 
+                });
+              } catch (err) {
+                deleteResults.push({ id: task.id, title: task.title || task.id, success: false, error: err.message });
+              }
+            }
+            
+            result = {
+              deletedCount: deleteResults.filter(r => r.success).length,
+              results: deleteResults
+            };
+          } catch (error) {
+            result = { success: false, error: error.message };
+          }
           break;
 
         case 'setTaskDone':
@@ -579,7 +623,17 @@ class MCPBridgePlugin {
           break;
           
         case 'deleteProject':
-          result = { error: 'Project deletion not supported via Plugin API. Use updateProject to archive instead.' };
+          try {
+            const projectId = command.projectId;
+            if (typeof window !== 'undefined' && window.__store) {
+              window.__store.dispatch({ type: '[Project] Delete Project', payload: projectId });
+              result = { success: true };
+            } else {
+              result = { success: false, error: 'Store not available' };
+            }
+          } catch (error) {
+            result = { success: false, error: error.message };
+          }
           break;
 
         // Tag operations

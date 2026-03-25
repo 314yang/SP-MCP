@@ -6,8 +6,6 @@ This MCP and plugin allows Claude Desktop to directly interact with Super Produc
 
 Make sure to backup your Super Productivity before using in case of data loss. I've provided a plugin.zip for convenience but feel free to make your own from the files.
 
-(Can't delete tasks right now (but it can mark them as done))
-
 ## Demo
 
 https://github.com/user-attachments/assets/cc118173-023f-48cb-8213-427027e475af
@@ -80,13 +78,42 @@ Once that's done, restart claude (and Super Prod for good measure) and you shoul
 "Show me all my tasks"
 "Mark the budget review task as complete"
 "Update the task 'Meeting prep' with notes about the agenda"
+"Delete the task 'Old task title'"
+"Delete all completed tasks"
+"Delete tasks with IDs ['task-id-1', 'task-id-2']"
+"Get task by ID"
+"Move task to project 'Website Redesign'"
+"Add 30 minutes to the 'Research' task"
+"Set 2 hours time estimate for 'Design review'"
 ```
 
-### Project and Tag Management
+#### Task Deletion Options
+| Option | Description |
+|--------|-------------|
+| `task_id` | Delete a single task by ID |
+| `task_ids` | Delete multiple tasks at once |
+| `clear_all` | Delete ALL tasks (including incomplete) - **use with caution** |
+| Default | Delete all completed tasks if no parameters provided |
+
+### Project Management
 ```
-"Create a new project called 'Website Redesign'"
 "Show me all projects"
-"Get all tags"
+"Create a new project called 'Website Redesign'"
+"Archive the project 'Old Project'"
+"Update project 'Website' with description 'New redesign'"
+"Update project 'Website' with color '#FF5722'"
+```
+
+### Tag Management
+```
+"Show me all tags"
+"Create a new tag called 'urgent'"
+"Update tag 'urgent' with color '#FF0000'"
+```
+
+### Notifications
+```
+"Show notification 'Task completed!'"
 ```
 
 ## Dashboard
