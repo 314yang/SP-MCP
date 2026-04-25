@@ -46,13 +46,10 @@ jobs:
             cp superp_mcp_schemas.json release/superp_mcp/
             echo "Including superp_mcp_schemas.json"
           fi
-          ls -la release/
-          ls -la release/superp_mcp/
           
       - name: Package superp_mcp directory
         run: |
           cd release && zip -r superp_mcp.zip superp_mcp/
-          ls -la release/
            
       - name: Create Release
         uses: softprops/action-gh-release@v1
