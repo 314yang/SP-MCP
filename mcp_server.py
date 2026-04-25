@@ -169,8 +169,15 @@ class SuperProductivityMCPServer:
                     result = await self.debug_directories(arguments)
                     return [types.TextContent(type="text", text=str(result))]
                 
-                # Tool name = action (camelCase from schemas)
+                # Map lowercase tool name back to proper action name
+                tool_name_lower = name.lower()
                 action = name
+                
+                # Find the proper camelCase action name from schemas
+                for schema_action in self.api_schemas.keys():
+                    if schema_action.lower() == tool_name_lower:
+                        action = schema_action
+                        break
                 
                 # Pass params directly
                 data = self.filter_params(arguments)
