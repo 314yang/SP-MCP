@@ -25,9 +25,9 @@ class SuperProductivityMCPServer:
     def setup_directories(self):
         """Set up communication directories for MCP server.
         
-        Uses platform-specific data directories:
-        - Windows: %APPDATA%
-        - Linux/Mac: $XDG_DATA_HOME or ~/.local/share
+        Can be overridden via environment variables:
+        - SP_MCP_BASE_DIR_WINDOWS: Base directory for Windows. default: %APPDATA%
+        - SP_MCP_BASE_DIR_LINUX: Base directory for Linux/WSL. default: $XDG_DATA_HOME or ~/.local/share
         
         Directory structure:
         - super-productivity-mcp/          # base directory
@@ -35,9 +35,13 @@ class SuperProductivityMCPServer:
           - plugin_responses/             # responses received from plugin
         """
         if os.name == 'nt':  # Windows
-            data_dir = os.environ.get('APPDATA', os.path.expanduser('~/AppData/Roaming'))
+            data_dir = os.environ.get('SP_MCP_BASE_DIR_WINDOWS')
+            if not data_dir:
+                data_dir = os.environ.get('APPDATA', os.path.expanduser('~/AppData/Roaming'))
         else:  # Linux/Mac
-            data_dir = os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share'))
+            data_dir = os.environ.get('SP_MCP_BASE_DIR_LINUX')
+            if not data_dir:
+                data_dir = os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share'))
         
         self.base_dir = Path(data_dir) / 'super-productivity-mcp'
         self.command_dir = self.base_dir / 'plugin_commands'

@@ -47,7 +47,7 @@ Once that's done, restart claude (and Super Prod for good measure) and you shoul
 2. **Set up MCP server:**
    Copy `mcp_server.py` to your data directory:
    - Windows: `%APPDATA%\super-productivity-mcp\`
-   - Linux: `~/.local/share/super-productivity-mcp/`
+   - Linux/WSL: `/mnt/d/dev/super-productivity-mcp/`
    - macOS: `~/Library/Application Support/super-productivity-mcp/`
 
 3. **Configure Claude Desktop:**
@@ -128,7 +128,7 @@ Access the SP-MCP dashboard from the menu. The dashboard shows:
 
 The plugin uses file-based communication through:
 - Windows: `%APPDATA%\super-productivity-mcp\`
-- Linux: `~/.local/share/super-productivity-mcp/`
+- Linux/WSL: `/mnt/d/dev/super-productivity-mcp/`
 - macOS: `~/Library/Application Support/super-productivity-mcp/`
 
 Commands are exchanged through `plugin_commands/` and `plugin_responses/` directories.

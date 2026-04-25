@@ -166,7 +166,7 @@ class MCPBridgePlugin {
     }
   }
 
-  async setupMCPCommunication() {
+async setupMCPCommunication() {
     // First try to use AppData directory
     try {
       const result = await PluginAPI.executeNodeScript({
@@ -175,12 +175,13 @@ class MCPBridgePlugin {
             const fs = require('fs');
             const path = require('path');
             const os = require('os');
+            const env = process.env;
             
             let dataDir;
             if (os.platform() === 'win32') {
-              dataDir = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+              dataDir = env.SP_MCP_BASE_DIR_WINDOWS || env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
             } else {
-              dataDir = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+              dataDir = env.SP_MCP_BASE_DIR_LINUX || env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
             }
             
             const mcpDir = path.join(dataDir, 'super-productivity-mcp');
@@ -226,11 +227,9 @@ class MCPBridgePlugin {
         this.config.mcpCommandDir = scriptResult.commandDir;
         this.config.mcpResponseDir = scriptResult.responseDir;
         return;
-      } else {
-        await this.log('AppData setup failed, trying fallback method');
       }
     } catch (e) {
-      await this.log(`AppData setup failed: ${e.message}`);
+      await this.log(`MCP communication setup failed, trying fallback: ${e.message}`);
     }
     
     try {
@@ -238,19 +237,22 @@ class MCPBridgePlugin {
         script: `
           const os = require('os');
           const path = require('path');
+          const env = process.env;
           
           let baseDir;
           if (os.platform() === 'win32') {
-            baseDir = path.join(os.homedir(), 'AppData', 'Roaming', 'super-productivity-mcp');
+            baseDir = env.SP_MCP_BASE_DIR_WINDOWS || env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
           } else {
-            baseDir = path.join(os.homedir(), '.local', 'share', 'super-productivity-mcp');
+            baseDir = env.SP_MCP_BASE_DIR_LINUX || env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
           }
+          
+          const mcpDir = path.join(baseDir, 'super-productivity-mcp');
           
           return {
             success: true,
-            mcpServerPath: baseDir,
-            commandDir: path.join(baseDir, 'plugin_commands'),
-            responseDir: path.join(baseDir, 'plugin_responses')
+            mcpServerPath: mcpDir,
+            commandDir: path.join(mcpDir, 'plugin_commands'),
+            responseDir: path.join(mcpDir, 'plugin_responses')
           };
         `,
         args: [],
