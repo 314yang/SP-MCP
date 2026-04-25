@@ -9,14 +9,15 @@ class MCPBridgePlugin {
     this.commandQueue = [];
     this.lastNoCommandsLog = 0;
     
-    // Configuration
+// Configuration
     this.config = {
-      commandCheckIntervalMs: 2000, // Check for commands every 2 seconds (configurable)
-      mcpCommandDir: null,          // Will be set during initialization  
-      mcpResponseDir: null,         // Will be set during initialization
+      commandCheckIntervalMs: 2000,
+      mcpCommandDir: null,          
+      mcpResponseDir: null,         
       debugMode: true,
       maxConcurrentCommands: 5,
-      configFile: null              // Will be set to store settings
+      configFile: null,
+      baseDir: null
     };
 
     // Statistics
@@ -28,7 +29,46 @@ class MCPBridgePlugin {
     };
   }
 
+  async initializeConfigPath() {
+    try {
+      const result = await PluginAPI.executeNodeScript({
+        script: `
+          const fs = require('fs');
+          const path = require('path');
+          const os = require('os');
+          
+          // Determine data directory based on platform
+          let dataDir;
+          if (os.platform() === 'win32') {
+            dataDir = path.join(os.homedir(), 'AppData', 'Roaming');
+          } else {
+            dataDir = path.join(os.homedir(), '.local', 'share');
+          }
+          
+          const mcpDir = path.join(dataDir, 'super-productivity-mcp');
+          const configFile = path.join(mcpDir, 'mcp_bridge_config.json');
+          
+          return { success: true, configFile: configFile };
+        `,
+        timeout: 5000
+      });
+      
+      if (result && result.success && result.result && result.result.success) {
+        this.config.configFile = result.result.configFile;
+        return true;
+      }
+    } catch (error) {
+      await this.log(`Failed to initialize config path: ${error.message}`);
+    }
+    return false;
+  }
+
   async loadConfig() {
+    // Ensure config path is set
+    if (!this.config.configFile) {
+      await this.initializeConfigPath();
+    }
+    
     try {
       const result = await PluginAPI.executeNodeScript({
         script: `
@@ -46,7 +86,8 @@ class MCPBridgePlugin {
               return { 
                 success: true, 
                 config: { 
-                  commandCheckIntervalMs: 2000 
+                  commandCheckIntervalMs: 2000, 
+                  baseDir: null 
                 } 
               };
             }
@@ -61,6 +102,7 @@ class MCPBridgePlugin {
       if (result && result.success && result.result && result.result.success) {
         const savedConfig = result.result.config;
         this.config.commandCheckIntervalMs = savedConfig.commandCheckIntervalMs || 2000;
+        this.config.baseDir = savedConfig.baseDir || null;
         return true;
       }
     } catch (error) {
@@ -70,9 +112,15 @@ class MCPBridgePlugin {
   }
 
   async saveConfig() {
+    // Ensure config path is set
+    if (!this.config.configFile) {
+      await this.initializeConfigPath();
+    }
+    
     try {
       const configData = {
-        commandCheckIntervalMs: this.config.commandCheckIntervalMs
+        commandCheckIntervalMs: this.config.commandCheckIntervalMs,
+        baseDir: this.config.baseDir
       };
       
       const result = await PluginAPI.executeNodeScript({
@@ -124,29 +172,42 @@ class MCPBridgePlugin {
     await this.log('MCP Bridge Plugin initializing...');
     
     try {
-      // Find the MCP server and set up communication directories
+      // 1. Set up config file path
+      await this.initializeConfigPath();
+      
+      // 2. Load saved config
+      await this.loadConfig();
+      
+      // 3. CRITICAL: If baseDir is empty, reset all paths immediately
+      const hasBaseDir = this.config.baseDir && this.config.baseDir.trim();
+      if (!hasBaseDir) {
+        this.config.baseDir = null;
+        this.mcpServerPath = null;
+        this.config.mcpCommandDir = null;
+        this.config.mcpResponseDir = null;
+        console.log('[Init] No config, paths reset to null');
+      } else {
+        console.log('[Init] Has config baseDir:', this.config.baseDir);
+      }
+      
+      // 4. Setup MCP dirs
       await this.setupMCPCommunication();
       
-      // Set config file path and load configuration (non-blocking)
-      this.config.configFile = this.mcpServerPath + '/mcp_bridge_config.json';
-      this.loadConfig().catch(e => this.log(`Config loading failed: ${e.message}`));
-      
-      // Start the command processing loop
+      // 5. Start command processing loop
       this.startCommandProcessing();
       
-      // Register event hooks for Super Productivity changes
+      // 6. Register event hooks
       this.registerHooks();
       
-      // Register UI elements
+      // 7. Register UI elements
       this.registerUI();
       
       this.isInitialized = true;
       await this.log('MCP Bridge Plugin initialized successfully!');
       
-      // Log success (skip notifications for now)
-      console.log('🔗 MCP Bridge connected! Ready for commands.');
+      console.log('🔗 MCP Bridge ready. MCP path:', this.mcpServerPath);
       
-      // Send initialization status to UI
+      // 8. Send init status to UI
       this.updateUI({
         status: { type: 'connected', message: '✅ Connected and ready' },
         mcpPath: this.mcpServerPath,
@@ -167,22 +228,62 @@ class MCPBridgePlugin {
   }
 
 async setupMCPCommunication() {
-    // First try to use AppData directory
+    console.log('[SETUP] START. config.baseDir:', this.config.baseDir);
+    
+    // Always reset paths first
+    this.mcpServerPath = null;
+    this.config.mcpCommandDir = null;
+    this.config.mcpResponseDir = null;
+    
+    const baseDir = this.config.baseDir;
+    console.log('[SETUP] baseDir variable:', baseDir);
+    console.log('[SETUP] baseDir type:', typeof baseDir);
+    
+    // If no config, skip setup - just show empty paths
+    if (!baseDir) {
+      await this.log('No baseDir configured. Please configure in Dashboard.');
+      return;
+    }
+    
+// First try - use executeNodeScript args properly
     try {
+      console.log('[SETUP] Calling executeNodeScript with baseDir:', baseDir);
+      
       const result = await PluginAPI.executeNodeScript({
         script: `
           try {
             const fs = require('fs');
             const path = require('path');
             const os = require('os');
-            const env = process.env;
             
-            let dataDir;
-            if (os.platform() === 'win32') {
-              dataDir = env.SP_MCP_BASE_DIR_WINDOWS || env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-            } else {
-              dataDir = env.SP_MCP_BASE_DIR_LINUX || env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+            const baseDirArg = args[0];
+            
+            // If no baseDir configured, return empty paths
+            if (!baseDirArg || (typeof baseDirArg === 'string' && !baseDirArg.trim())) {
+              return {
+                success: true,
+                mcpServerPath: null,
+                commandDir: null,
+                responseDir: null,
+                empty: true
+              };
             }
+            
+            // Convert common env var patterns to actual paths using os.homedir()
+            function resolveEnvVar(input) {
+              if (input === '%APPDATA%' && os.platform() === 'win32') {
+                return path.join(os.homedir(), 'AppData', 'Roaming');
+              }
+              if (input === '%HOME%' || input === '%USERPROFILE%') {
+                return os.homedir();
+              }
+              if (input === '%LOCALAPPDATA%' && os.platform() === 'win32') {
+                return path.join(os.homedir(), 'AppData', 'Local');
+              }
+              return input;
+            }
+            
+            let dataDir = resolveEnvVar(baseDirArg.trim());
             
             const mcpDir = path.join(dataDir, 'super-productivity-mcp');
             const commandDir = path.join(mcpDir, 'plugin_commands');
@@ -202,8 +303,7 @@ async setupMCPCommunication() {
               success: true,
               mcpServerPath: mcpDir,
               commandDir: commandDir,
-              responseDir: responseDir,
-              platform: os.platform()
+              responseDir: responseDir
             };
             
           } catch (error) {
@@ -213,64 +313,35 @@ async setupMCPCommunication() {
             };
           }
         `,
-        args: [],
+        args: [baseDir],
         timeout: 10000
       });
+      
+      console.log('[SETUP] executeNodeScript result:', JSON.stringify(result));
       
       let scriptResult = result;
       if (result && result.success && result.result) {
         scriptResult = result.result;
       }
       
+      console.log('[SETUP] scriptResult:', JSON.stringify(scriptResult, null, 2));
+      
       if (scriptResult && scriptResult.success) {
         this.mcpServerPath = scriptResult.mcpServerPath;
         this.config.mcpCommandDir = scriptResult.commandDir;
         this.config.mcpResponseDir = scriptResult.responseDir;
+        console.log('[SETUP] SUCCESS. Paths set to:', this.mcpServerPath);
         return;
+      } else {
+        console.log('[SETUP] Script returned error:', scriptResult?.error);
+        await this.log('Script setup failed: ' + (scriptResult?.error || 'unknown'));
       }
     } catch (e) {
-      await this.log(`MCP communication setup failed, trying fallback: ${e.message}`);
+      console.log('[SETUP] executeNodeScript threw:', e.message);
+      await this.log('Setup failed: ' + e.message);
     }
     
-    try {
-      const fallbackResult = await PluginAPI.executeNodeScript({
-        script: `
-          const os = require('os');
-          const path = require('path');
-          const env = process.env;
-          
-          let baseDir;
-          if (os.platform() === 'win32') {
-            baseDir = env.SP_MCP_BASE_DIR_WINDOWS || env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-          } else {
-            baseDir = env.SP_MCP_BASE_DIR_LINUX || env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
-          }
-          
-          const mcpDir = path.join(baseDir, 'super-productivity-mcp');
-          
-          return {
-            success: true,
-            mcpServerPath: mcpDir,
-            commandDir: path.join(mcpDir, 'plugin_commands'),
-            responseDir: path.join(mcpDir, 'plugin_responses')
-          };
-        `,
-        args: [],
-        timeout: 5000
-      });
-      
-      if (fallbackResult && fallbackResult.success && fallbackResult.result) {
-        this.mcpServerPath = fallbackResult.result.mcpServerPath;
-        this.config.mcpCommandDir = fallbackResult.result.commandDir;
-        this.config.mcpResponseDir = fallbackResult.result.responseDir;
-        return;
-      }
-    } catch (fallbackError) {
-      await this.log(`Fallback setup failed: ${fallbackError.message}`);
-    }
-    
-    // If we get here, everything failed
-    throw new Error('Could not set up MCP communication directories');
+    // If we get here (setup failed), paths are already reset to null at the start
   }
 
 
@@ -524,7 +595,7 @@ async setupMCPCommunication() {
               tasksToDelete = allTasks.filter(t => t.isDone === true);
             }
             
-            const deleteResults = [];
+const deleteResults = [];
             for (const task of tasksToDelete) {
               try {
                 await PluginAPI.deleteTask(task.id);
@@ -540,6 +611,32 @@ async setupMCPCommunication() {
             
             result = {
               deletedCount: deleteResults.filter(r => r.success).length,
+              results: deleteResults
+            };
+          } catch (error) {
+            result = { success: false, error: error.message };
+          }
+          break;
+
+        case 'deleteTasksInProject':
+          try {
+            const projectId = command.projectId;
+            const allTasks = await PluginAPI.getTasks();
+            const projectTasks = allTasks.filter(t => t.projectId === projectId);
+            
+            const deleteResults = [];
+            for (const task of projectTasks) {
+              try {
+                await PluginAPI.deleteTask(task.id);
+                deleteResults.push({ id: task.id, title: task.title || task.id, success: true });
+              } catch (err) {
+                deleteResults.push({ id: task.id, title: task.title || task.id, success: false, error: err.message });
+              }
+            }
+            
+            result = {
+              deletedCount: deleteResults.filter(r => r.success).length,
+              totalTasks: projectTasks.length,
               results: deleteResults
             };
           } catch (error) {
@@ -894,6 +991,49 @@ async setupMCPCommunication() {
     await this.processNewCommands();
     this.updateUI({
       log: { message: 'Force command check completed', type: 'success' }
+    });
+  }
+
+async updateSettings(frequency, baseDir) {
+    console.log('[UPDATE] START. baseDir:', baseDir);
+    
+    // Ensure config path is set
+    if (!this.config.configFile) {
+      await this.initializeConfigPath();
+    }
+    
+    // If clearing config, reset everything to null
+    if (!baseDir || typeof baseDir !== 'string' || !baseDir.trim()) {
+      this.config.baseDir = null;
+      this.mcpServerPath = null;
+      this.config.mcpCommandDir = null;
+      this.config.mcpResponseDir = null;
+      await this.saveConfig();
+      
+      this.updateUI({
+        mcpPath: null,
+        commandDir: null,
+        responseDir: null,
+        log: { message: 'Configuration cleared', type: 'info' }
+      });
+      return;
+    }
+    
+    const trimmedBaseDir = baseDir.trim();
+    console.log('[UPDATE] After trim. baseDir:', trimmedBaseDir);
+    
+    this.config.baseDir = trimmedBaseDir;
+    console.log('[UPDATE] config.baseDir set to:', this.config.baseDir);
+    await this.saveConfig();
+    console.log('[UPDATE] Saved. Now calling setupMCPCommunication...');
+    await this.setupMCPCommunication();
+    console.log('[UPDATE] setupMCPCommunication done. mcpServerPath:', this.mcpServerPath);
+    
+    this.updateUI({
+      mcpPath: this.mcpServerPath,
+      commandDir: this.config.mcpCommandDir,
+      responseDir: this.config.mcpResponseDir,
+      log: { message: `Settings updated. MCP dirs: ${this.mcpServerPath}`, type: 'success' }
     });
   }
 

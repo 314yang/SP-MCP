@@ -26,13 +26,9 @@ Make sure to backup your Super Productivity before using in case of data loss.
      "command": "python3",
      "args": [
        "/path/to/superp_mcp/superp_mcp_server.py"
-     ],
-     "env": {
-       "SP_MCP_BASE_DIR_LINUX": "/custom/path"
-     }
+     ]
    }
    ```
-   - `env` is optional - defaults to system data directory
 
 4. **Install the plugin:**
    - Open Super Productivity → Settings → Plugins
@@ -40,6 +36,11 @@ Make sure to backup your Super Productivity before using in case of data loss.
    - Select `superp-mcp-plugin.zip`
 
 5. **Restart Claude Desktop**
+
+6. **Configure data directory (optional):**
+   - Open SP-MCP Dashboard from the Super Productivity menu
+   - Enter your desired base directory path
+   - Supports `%APPDATA%` (Windows) or custom paths
 
 ## Data & Communication
 
@@ -127,6 +128,22 @@ Access the SP-MCP dashboard from the menu. The dashboard shows:
 - Connection status
 - Activity logs
 - Settings (polling frequency: default 2 seconds)
+
+### Base Directory Configuration
+
+Configure the MCP data directory from the dashboard UI:
+
+1. Open the SP-MCP Dashboard from the menu
+2. Enter a path in the "Base Directory" field:
+   - **Windows**: Enter `%APPDATA%` for `C:\Users\<username>\AppData\Roaming`, or a custom path like `D:\dev`
+   - **Linux**: Enter `~/.local/share` or a custom path like `/home/user/data`
+   - **Custom**: Any directory path
+
+3. Click outside the input field to save
+
+The configured path will be used to create `super-productivity-mcp/` subdirectory with `plugin_commands/` and `plugin_responses/` folders.
+
+If no path is configured, the plugin will show empty paths. Configure a path to enable MCP communication.
 
 ## Troubleshooting
 

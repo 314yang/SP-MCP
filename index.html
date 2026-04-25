@@ -265,16 +265,16 @@
             <div class="card">
                 <h3>🔧 MCP Configuration</h3>
                 <div class="stat">
-                    <span class="stat-label">Data Directory:</span>
-                    <span class="stat-value" id="mcpPath">Not set</span>
+                    <span class="stat-label">MCP Directory:</span>
+                    <span class="stat-value" id="mcpPath"></span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Commands Dir:</span>
-                    <span class="stat-value" id="commandsDir">Not set</span>
+                    <span class="stat-value" id="commandsDir"></span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Responses Dir:</span>
-                    <span class="stat-value" id="responsesDir">Not set</span>
+                    <span class="stat-value" id="responsesDir"></span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Polling Frequency:</span>
@@ -286,15 +286,16 @@
             <div class="card config-section">
                 <h3>⚙️ Settings</h3>
                 <div class="config-form">
-                    <div class="form-group">
-                        <label for="pollingFrequency">Polling Frequency (seconds):</label>
-                        <input type="number" id="pollingFrequency" min="1" max="60" value="2" />
+<div class="form-group">
+                        <label for="baseDir">Base Directory:</label>
+                        <input type="text" id="baseDir" style="width: 200px; color: #fff; background: #333; border: 1px solid #555; padding: 4px;" onblur="updateSettings()" />
+                        <small id="baseDirHint" style="color: #888; font-size: 0.75rem;"></small>
                     </div>
-                    <button class="btn btn-primary" onclick="updatePollingFrequency()">Update</button>
+                    <div class="form-group">
+                        <label for="pollingFrequency">Polling (s):</label>
+                        <input type="number" id="pollingFrequency" min="1" max="60" value="2" style="width: 60px; color: #fff; background: #333; border: 1px solid #555; padding: 4px;" onblur="updateSettings()" />
+                    </div>
                     <button class="btn btn-secondary" onclick="clearLogs()">Clear Logs</button>
-                </div>
-                <div class="path-info" id="pathInfo">
-                    MCP data will be stored in your system's application data directory.
                 </div>
             </div>
 
@@ -321,6 +322,15 @@
         };
 
         function init() {
+            // Detect platform and show appropriate default path hint
+            const isWindows = navigator.userAgent.indexOf('Win') !== -1;
+            const hint = document.getElementById('baseDirHint');
+            if (hint) {
+                hint.textContent = isWindows 
+                    ? '支持 %APPDATA% 或自定义路径 (如 D:\\dev)' 
+                    : '支持 ~/.local/share 或自定义路径';
+            }
+            
             loadSettings();
             updateUI();
             startStatusUpdates();
@@ -349,15 +359,16 @@
                 bridgeStatus.stats = { ...bridgeStatus.stats, ...data.stats };
             }
             
-            if (data.mcpPath) {
+            // Use hasOwnProperty to distinguish between undefined and empty string
+            if (data.hasOwnProperty('mcpPath')) {
                 bridgeStatus.mcpPath = data.mcpPath;
             }
             
-            if (data.commandDir) {
+            if (data.hasOwnProperty('commandDir')) {
                 bridgeStatus.commandsDir = data.commandDir;
             }
             
-            if (data.responseDir) {
+            if (data.hasOwnProperty('responseDir')) {
                 bridgeStatus.responsesDir = data.responseDir;
             }
             
@@ -396,16 +407,12 @@
             const uptime = Math.floor((Date.now() - bridgeStatus.stats.startTime) / 1000);
             document.getElementById('uptime').textContent = formatUptime(uptime);
             
-            // Update MCP info
-            document.getElementById('mcpPath').textContent = bridgeStatus.mcpPath || 'Not set';
-            document.getElementById('commandsDir').textContent = bridgeStatus.commandsDir || 'Not set';
-            document.getElementById('responsesDir').textContent = bridgeStatus.responsesDir || 'Not set';
+            // Update MCP info - show actual paths when available
+            const showPath = bridgeStatus.mcpPath;
+            document.getElementById('mcpPath').textContent = showPath || '';
+            document.getElementById('commandsDir').textContent = bridgeStatus.commandsDir || '';
+            document.getElementById('responsesDir').textContent = bridgeStatus.responsesDir || '';
             document.getElementById('currentPolling').textContent = bridgeStatus.pollingFrequency + 's';
-            
-            // Update path info
-            if (bridgeStatus.mcpPath) {
-                document.getElementById('pathInfo').textContent = `MCP data directory: ${bridgeStatus.mcpPath}`;
-            }
         }
 
         function formatUptime(seconds) {
@@ -462,6 +469,27 @@
             addLogEntry('Force command check requested', 'info');
         }
 
+        function updateSettings() {
+            const baseDirInput = document.getElementById('baseDir');
+            const baseDir = baseDirInput.value.trim();
+            console.log('[UI] baseDir input value:', baseDirInput.value);
+            console.log('[UI] baseDir trimmed:', baseDir);
+            
+            const frequency = parseInt(document.getElementById('pollingFrequency').value);
+            
+            sendMessageToPlugin({
+                type: 'updateSettings',
+                frequency: frequency,
+                baseDir: baseDir || null
+            });
+            
+            if (baseDir) {
+                addLogEntry(`Settings updated. BaseDir: ${baseDir}`, 'info');
+            } else {
+                addLogEntry('Base directory cleared. MCP paths reset.', 'info');
+            }
+        }
+
         function clearLogs() {
             document.getElementById('logsContainer').innerHTML = '';
             addLogEntry('Logs cleared', 'info');
@@ -470,8 +498,8 @@
 
         function sendMessageToPlugin(message) {
             if (window.parent && window.parent.mcpBridge) {
-                if (message.type === 'updatePollingFrequency') {
-                    window.parent.mcpBridge.updatePollingFrequency(message.frequency);
+                if (message.type === 'updateSettings') {
+                    window.parent.mcpBridge.updateSettings(message.frequency, message.baseDir);
                 } else if (message.type === 'forceCheck') {
                     window.parent.mcpBridge.forceCommandCheck();
                 }
