@@ -20,7 +20,37 @@ class SuperProductivityMCPServer:
         self.server = Server("super-productivity")
         self.setup_directories()
         self.setup_logging()
+        self.api_schemas = self.load_api_schemas()
         self.setup_tools()
+    
+    def load_api_schemas(self) -> dict:
+        """Load API schemas from file"""
+        schema_file = self.base_dir / 'api_schemas.json'
+        if schema_file.exists():
+            try:
+                with open(schema_file) as f:
+                    schemas = json.load(f)
+                logging.info(f"Loaded API schemas from {schema_file}")
+                return schemas
+            except Exception as e:
+                logging.warning(f"Failed to load schemas: {e}")
+        
+        return {}
+    
+    def reload_api_schemas(self):
+        """Reload API schemas from file"""
+        self.api_schemas = self.load_api_schemas()
+        logging.info("Reloaded API schemas")
+    
+    def filter_params(self, data: dict) -> dict:
+        """Filter null values"""
+        if not data:
+            return {}
+        return {k: v for k, v in data.items() if v is not None}
+    
+    def map_params(self, params: dict) -> dict:
+        """No mapping needed - using camelCase from schema"""
+        return params
         
     def setup_directories(self):
         """Set up communication directories for MCP server.
@@ -69,375 +99,57 @@ class SuperProductivityMCPServer:
         
         @self.server.list_tools()
         async def handle_list_tools() -> List[types.Tool]:
-            """List available tools"""
-            return [
-                types.Tool(
-                    name="create_task",
-                    description="Create a new task in Super Productivity. When users provide natural language with time/date references, convert them to Super Productivity syntax in the title field.",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                                "description": "Task title with Super Productivity syntax. Convert natural language time/date references to @syntax using days/weeks/months from TODAY (e.g., 'tomorrow' -> '@1days', 'Friday at 3pm' -> '@fri 3pm', 'next week' -> '@7days', 'push back a week' -> '@14days' if task was already a week out). Use @Xdays, @Yweeks, or @Zmonths where X/Y/Z is the number from today. Add #tags for urgency/priority and +projects as needed."
-                            },
-                            "notes": {
-                                "type": "string",
-                                "description": "Task notes/description"
-                            },
-                            "project_id": {
-                                "type": "string",
-                                "description": "Project ID to assign task to"
-                            },
-                            "parent_id": {
-                                "type": "string",
-                                "description": "Parent task ID for subtasks"
-                            }
-                        },
-                        "required": ["title"]
-                    }
-                ),
-                types.Tool(
-                    name="get_tasks",
-                    description="Get tasks from Super Productivity with optional filtering. Note: Filtering happens server-side after fetching all tasks (SP has no database indexes, so this is same O(n) complexity as filtering in SP itself).",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "include_done": {
-                                "type": "boolean",
-                                "description": "Include completed tasks",
-                                "default": True
-                            },
-                            "tag_id": {
-                                "type": "string",
-                                "description": "Filter tasks by tag ID (only returns tasks with this tag)"
-                            },
-                            "project_id": {
-                                "type": "string",
-                                "description": "Filter tasks by project ID"
+            tools = []
+            for action, schema in self.api_schemas.items():
+                # Tool name = action lowercase
+                tool_name = action.lower()
+                description = f"Call {action} via PluginAPI"
+                tools.append(types.Tool(
+                    name=tool_name,
+                    description=description,
+                    inputSchema=schema
+                ))
+            tools.append(types.Tool(
+                name="batch_create_projects_with_tasks",
+                description="Batch create projects with tasks. Supports nested subTasks.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "projects": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {"type": "string"},
+                                    "color": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "tasks": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "title": {"type": "string"},
+                                                "notes": {"type": "string"},
+                                                "timeEstimate": {"type": "number"},
+                                                "parentId": {"type": "string"},
+                                                "subTasks": {"type": "array"}
+                                            }
+                                        }
+                                    }
+                                },
+                                "required": ["title"]
                             }
                         }
-                    }
-                ),
-                types.Tool(
-                    name="update_task",
-                    description="Update an existing task. When users provide natural language with time/date references, convert them to Super Productivity syntax in the title field.",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Task ID to update"
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "New task title with Super Productivity syntax. Convert natural language time/date references to @syntax using days/weeks/months from TODAY (e.g., 'push back a week' -> '@14days' if task was already a week out, 'move to next Friday' -> '@5days' if next Friday is 5 days from today, 'reschedule for tomorrow' -> '@1days'). Use @Xdays, @Yweeks, or @Zmonths where X/Y/Z is the number from today. Add #tags for urgency/priority and +projects as needed."
-                            },
-                            "notes": {
-                                "type": "string",
-                                "description": "New task notes"
-                            },
-                            "is_done": {
-                                "type": "boolean",
-                                "description": "Mark task as done/undone"
-                            },
-                            "time_estimate": {
-                                "type": "integer",
-                                "description": "Time estimate in milliseconds"
-                            },
-                            "time_spent": {
-                                "type": "integer",
-                                "description": "Time spent in milliseconds"
-                            }
-                        },
-                        "required": ["task_id"]
-                    }
-                ),
-                types.Tool(
-                    name="complete_task",
-                    description="Complete a task (mark as done) in Super Productivity",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Task ID to complete"
-                            }
-                        },
-                        "required": ["task_id"]
-                    }
-                ),
-                types.Tool(
-                    name="reorder_tasks",
-                    description="Reorder tasks within a project or subtasks within a parent task. Uses SP's native PluginAPI.reorderTasks() - task order is determined by array position. Perfect for LLM-assisted prioritization via binary comparisons.",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_ids": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Array of task IDs in the desired order (first = highest priority)"
-                            },
-                            "context_id": {
-                                "type": "string",
-                                "description": "The project ID (for reordering project tasks) or parent task ID (for reordering subtasks)"
-                            },
-                            "context_type": {
-                                "type": "string",
-                                "enum": ["project", "task"],
-                                "description": "Whether reordering tasks in a project or subtasks of a parent task"
-                            }
-                        },
-                        "required": ["task_ids", "context_id", "context_type"]
-                    }
-                ),
-                types.Tool(
-                    name="delete_task",
-                    description="Delete tasks. Supports: (1) single task via task_id, (2) multiple tasks via task_ids array, (3) all completed tasks if neither provided, (4) all tasks if clear_all=true.",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Single task ID to delete"
-                            },
-                            "task_ids": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Array of task IDs to delete"
-                            },
-                            "clear_all": {
-                                "type": "boolean",
-                                "description": "If true, delete ALL tasks (including incomplete). Use with caution!",
-                                "default": False
-                            }
-                        },
-                        "required": []
-                    }
-                ),
-                types.Tool(
-                    name="get_task",
-                    description="Get a single task by ID",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Task ID to get"
-                            }
-                        },
-                        "required": ["task_id"]
-                    }
-                ),
-                types.Tool(
-                    name="move_task_to_project",
-                    description="Move a task to a different project",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Task ID to move"
-                            },
-                            "project_id": {
-                                "type": "string",
-                                "description": "Target project ID"
-                            }
-                        },
-                        "required": ["task_id", "project_id"]
-                    }
-                ),
-                types.Tool(
-                    name="add_time_spent",
-                    description="Add time spent to a task",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Task ID"
-                            },
-                            "time_ms": {
-                                "type": "integer",
-                                "description": "Time in milliseconds to add"
-                            }
-                        },
-                        "required": ["task_id", "time_ms"]
-                    }
-                ),
-                types.Tool(
-                    name="set_time_estimate",
-                    description="Set time estimate for a task",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "task_id": {
-                                "type": "string",
-                                "description": "Task ID"
-                            },
-                            "time_ms": {
-                                "type": "integer",
-                                "description": "Time estimate in milliseconds"
-                            }
-                        },
-                        "required": ["task_id", "time_ms"]
-                    }
-                ),
-                types.Tool(
-                    name="get_projects",
-                    description="Get all projects from Super Productivity",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {}
-                    }
-                ),
-                types.Tool(
-                    name="create_project",
-                    description="Create a new project",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                                "description": "Project title"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Project description"
-                            },
-                            "color": {
-                                "type": "string",
-                                "description": "Project color (hex code)"
-                            }
-                        },
-                        "required": ["title"]
-                    }
-                ),
-                types.Tool(
-                    name="archive_project",
-                    description="Archive a project in Super Productivity",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "project_id": {
-                                "type": "string",
-                                "description": "Project ID to archive"
-                            }
-                        },
-                        "required": ["project_id"]
-                    }
-                ),
-                types.Tool(
-                    name="update_project",
-                    description="Update a project (title, description, color, isArchived, etc.)",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "project_id": {
-                                "type": "string",
-                                "description": "Project ID to update"
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "New project title"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "New project description"
-                            },
-                            "color": {
-                                "type": "string",
-                                "description": "Project color (hex code)"
-                            },
-                            "is_archived": {
-                                "type": "boolean",
-                                "description": "Archive/unarchive the project"
-                            }
-                        },
-                        "required": ["project_id"]
-                    }
-                ),
-                types.Tool(
-                    name="get_tags",
-                    description="Get all tags from Super Productivity",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {}
-                    }
-                ),
-                types.Tool(
-                    name="create_tag",
-                    description="Create a new tag",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string",
-                                "description": "Tag title"
-                            },
-                            "color": {
-                                "type": "string",
-                                "description": "Tag color (hex code)"
-                            }
-                        },
-                        "required": ["title"]
-                    }
-                ),
-                types.Tool(
-                    name="update_tag",
-                    description="Update an existing tag (title, color, icon)",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "tag_id": {
-                                "type": "string",
-                                "description": "Tag ID to update"
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "New tag title"
-                            },
-                            "color": {
-                                "type": "string",
-                                "description": "New tag color (hex code)"
-                            },
-                            "icon": {
-                                "type": "string",
-                                "description": "New tag icon (emoji or material icon name)"
-                            }
-                        },
-                        "required": ["tag_id"]
-                    }
-                ),
-                types.Tool(
-                    name="show_notification",
-                    description="Show a notification in Super Productivity",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "message": {
-                                "type": "string",
-                                "description": "Notification message"
-                            },
-                            "type": {
-                                "type": "string",
-                                "enum": ["success", "info", "warning", "error"],
-                                "description": "Notification type",
-                                "default": "info"
-                            }
-                        },
-                        "required": ["message"]
-                    }
-                ),
-                types.Tool(
-                    name="debug_directories",
-                    description="Debug the communication directories and show their status",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {}
-                    }
-                )
-            ]
+                    },
+                    "required": ["projects"]
+                }
+            ))
+            tools.append(types.Tool(
+                name="debug_directories",
+                description="Debug directories",
+                inputSchema={"type": "object", "properties": {}}
+            ))
+            return tools
         
         @self.server.call_tool()
         async def handle_call_tool(
@@ -445,47 +157,23 @@ class SuperProductivityMCPServer:
         ) -> List[types.TextContent]:
             """Handle tool calls"""
             try:
-                if name == "create_task":
-                    result = await self.create_task(arguments)
-                elif name == "get_tasks":
-                    result = await self.get_tasks(arguments)
-                elif name == "update_task":
-                    result = await self.update_task(arguments)
-                elif name == "complete_task":
-                    result = await self.complete_task(arguments)
-                elif name == "reorder_tasks":
-                    result = await self.reorder_tasks(arguments)
-                elif name == "delete_task":
-                    result = await self.delete_task(arguments)
-                elif name == "get_task":
-                    result = await self.get_task(arguments)
-                elif name == "move_task_to_project":
-                    result = await self.move_task_to_project(arguments)
-                elif name == "add_time_spent":
-                    result = await self.add_time_spent(arguments)
-                elif name == "set_time_estimate":
-                    result = await self.set_time_estimate(arguments)
-                elif name == "get_projects":
-                    result = await self.get_projects(arguments)
-                elif name == "create_project":
-                    result = await self.create_project(arguments)
-                elif name == "archive_project":
-                    result = await self.archive_project(arguments)
-                elif name == "get_tags":
-                    result = await self.get_tags(arguments)
-                elif name == "create_tag":
-                    result = await self.create_tag(arguments)
-                elif name == "update_tag":
-                    result = await self.update_tag(arguments)
-                elif name == "show_notification":
-                    result = await self.show_notification(arguments)
-                elif name == "debug_directories":
+                if name == "batch_create_projects_with_tasks":
+                    result = await self.batch_create_projects_with_tasks(arguments.get("projects", []))
+                    return [types.TextContent(type="text", text=json.dumps(result))]
+                
+                if name == "debug_directories":
                     result = await self.debug_directories(arguments)
-                else:
-                    raise ValueError(f"Unknown tool: {name}")
+                    return [types.TextContent(type="text", text=str(result))]
                 
+                # Tool name = action (camelCase from schemas)
+                action = name
+                
+                # Pass params directly
+                data = self.filter_params(arguments)
+                
+                result = await self.send_command(action, **data)
                 return [types.TextContent(type="text", text=str(result))]
-                
+
             except Exception as e:
                 logging.error(f"Error in tool {name}: {str(e)}")
                 return [types.TextContent(type="text", text=f"Error: {str(e)}")]
@@ -817,6 +505,101 @@ class SuperProductivityMCPServer:
     async def show_notification(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Show a notification"""
         return await self.send_command("showSnack", message=args.get("message", ""))
+    
+    async def batch_create_projects_with_tasks(self, projects: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Batch create projects with tasks
+        
+        Args:
+            projects: List of projects, each containing title, color, description, tasks
+        
+        Returns:
+            {
+                "success": bool,
+                "projects": [...],
+                "created": int,
+                "failed": int,
+                "errors": []
+            }
+        """
+        results = []
+        errors = []
+        created = 0
+        failed = 0
+        
+        async def create_project_with_tasks(project_data: Dict[str, Any]) -> Dict[str, Any]:
+            nonlocal created, failed
+            
+            project_title = project_data.get("title", "")
+            tasks_data = project_data.get("tasks", [])
+            
+            project_result = await self.send_command("addProject", data={
+                "title": project_title,
+                "description": project_data.get("description", ""),
+                "color": project_data.get("color", "#2196F3")
+            })
+            
+            if not project_result.get("success"):
+                failed += 1
+                errors.append({"type": "project", "title": project_title, "error": project_result.get("error")})
+                return {"title": project_title, "error": project_result.get("error")}
+            
+            project_id = project_result.get("result") or project_result.get("id")
+            
+            async def create_tasks_recursive(tasks: List[Dict], parent_id: str = None) -> List[Dict]:
+                nonlocal created, failed
+                task_results = []
+                
+                for task_data in tasks:
+                    sub_tasks = task_data.pop("subTasks", [])
+                    task_data["projectId"] = project_id
+                    if parent_id:
+                        task_data["parentId"] = parent_id
+                    
+                    task_result = await self.send_command("addTask", data=task_data)
+                    
+                    if task_result.get("success"):
+                        task_id = task_result.get("result") or task_result.get("id")
+                        created += 1
+                        sub_results = await create_tasks_recursive(sub_tasks, task_id)
+                        task_results.append({
+                            "id": task_id,
+                            "title": task_data.get("title"),
+                            "subTasks": sub_results
+                        })
+                    else:
+                        failed += 1
+                        errors.append({"type": "task", "title": task_data.get("title"), "error": task_result.get("error")})
+                    
+                    task_data["subTasks"] = sub_tasks
+                
+                return task_results
+            
+            task_results = await create_tasks_recursive(tasks_data)
+            
+            return {
+                "id": project_id,
+                "title": project_title,
+                "tasks": task_results
+            }
+        
+        project_results = await asyncio.gather(*[
+            create_project_with_tasks(p) for p in projects
+        ], return_exceptions=True)
+        
+        for result in project_results:
+            if isinstance(result, Exception):
+                failed += 1
+                errors.append({"type": "project", "error": str(result)})
+            else:
+                results.append(result)
+        
+        return {
+            "success": failed == 0,
+            "projects": results,
+            "created": created,
+            "failed": failed,
+            "errors": errors
+        }
     
     async def debug_directories(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Debug tool to check MCP communication directories status.
