@@ -2,68 +2,414 @@
   "addTask": {
     "type": "object",
     "properties": {
-      "title": {"type": "string"},
-      "notes": {"type": "string"},
-      "timeEstimate": {"type": "number"},
-      "projectId": {"type": "string"},
-      "parentId": {"type": "string", "description": "For subtasks"},
-      "tagIds": {"type": "array", "items": {"type": "string"}}
+      "title": {
+        "type": "string",
+        "description": "Task title with SP syntax (@days, #tags, +projects)"
+      },
+      "projectId": {
+        "type": "string",
+        "description": "Project ID"
+      },
+      "tagIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Array of tag IDs"
+      },
+      "notes": {
+        "type": "string",
+        "description": "Task notes"
+      },
+      "timeEstimate": {
+        "type": "number",
+        "description": "Estimated time (ms)"
+      },
+      "parentId": {
+        "type": "string",
+        "description": "Parent task ID"
+      },
+      "isDone": {
+        "type": "boolean",
+        "description": "Mark done"
+      },
+      "dueDay": {
+        "type": "string",
+        "description": "Due date YYYY-MM-DD"
+      }
     },
-    "required": ["title"]
+    "required": [
+      "title"
+    ]
+  },
+  "getTasks": {
+    "type": "object",
+    "properties": {}
+  },
+  "getArchivedTasks": {
+    "type": "object",
+    "properties": {}
+  },
+  "getCurrentContextTasks": {
+    "type": "object",
+    "properties": {}
+  },
+  "getAllProjects": {
+    "type": "object",
+    "properties": {}
+  },
+  "getAllTags": {
+    "type": "object",
+    "properties": {}
+  },
+  "getTask": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string",
+        "description": "Task ID"
+      }
+    },
+    "required": [
+      "taskId"
+    ]
   },
   "updateTask": {
     "type": "object",
     "properties": {
-      "taskId": {"type": "string"},
-      "title": {"type": "string"},
-      "notes": {"type": "string"},
-      "isDone": {"type": "boolean"}
+      "title": {
+        "type": "string"
+      },
+      "notes": {
+        "type": "string"
+      },
+      "timeEstimate": {
+        "type": "number"
+      },
+      "timeSpent": {
+        "type": "number"
+      },
+      "isDone": {
+        "type": "boolean"
+      },
+      "projectId": {
+        "type": "string"
+      },
+      "tagIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "dueDay": {
+        "type": "string"
+      },
+      "doneOn": {
+        "type": "number"
+      }
     },
-    "required": ["taskId"]
+    "required": []
   },
-  "getTasks": {
+  "deleteTask": {
     "type": "object",
     "properties": {
-      "projectId": {"type": "string"},
-      "tagId": {"type": "string"},
-      "includeDone": {"type": "boolean"}
-    }
+      "taskId": {
+        "type": "string",
+        "description": "Task ID to delete"
+      },
+      "taskIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Delete multiple tasks"
+      },
+      "clearAll": {
+        "type": "boolean",
+        "description": "Delete ALL tasks (including incomplete)"
+      }
+    },
+    "required": []
+  },
+  "deleteTasksInProject": {
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "description": "Project ID - all tasks in this project will be deleted"
+      }
+    },
+    "required": ["projectId"]
+  },
+  "setTaskDone": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "taskId"
+    ]
+  },
+  "setTaskUndone": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "taskId"
+    ]
+  },
+  "addTimeToTask": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      },
+      "timeMs": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "taskId"
+    ]
+  },
+  "setTimeEstimate": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      },
+      "timeMs": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "taskId"
+    ]
+  },
+  "moveTaskToProject": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      },
+      "projectId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "taskId",
+      "projectId"
+    ]
+  },
+  "addTagToTask": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      },
+      "tagId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "taskId",
+      "tagId"
+    ]
+  },
+  "removeTagFromTask": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string"
+      },
+      "tagId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "taskId",
+      "tagId"
+    ]
+  },
+  "reorderTasks": {
+    "type": "object",
+    "properties": {
+      "taskIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "contextId": {
+        "type": "string"
+      },
+      "contextType": {
+        "type": "string"
+      }
+    },
+    "required": []
   },
   "addProject": {
     "type": "object",
     "properties": {
-      "title": {"type": "string"},
-      "description": {"type": "string"},
-      "color": {"type": "string"}
+      "title": {
+        "type": "string",
+        "description": "Project title"
+      },
+      "theme": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "string"
+          }
+        },
+        "description": "Theme config"
+      },
+      "isArchived": {
+        "type": "boolean",
+        "description": "Archive"
+      },
+      "isEnableBacklog": {
+        "type": "boolean",
+        "description": "Enable backlog"
+      },
+      "isHiddenFromMenu": {
+        "type": "boolean",
+        "description": "Hide from menu"
+      },
+      "folderId": {
+        "type": "string",
+        "description": "Folder ID"
+      }
     },
-    "required": ["title"]
+    "required": [
+      "title"
+    ]
   },
   "updateProject": {
     "type": "object",
     "properties": {
-      "projectId": {"type": "string"},
-      "title": {"type": "string"},
-      "description": {"type": "string"},
-      "color": {"type": "string"},
-      "isArchived": {"type": "boolean"}
+      "projectId": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "theme": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "string"
+          }
+        }
+      },
+      "isArchived": {
+        "type": "boolean"
+      }
     },
-    "required": ["projectId"]
+    "required": []
+  },
+  "deleteProject": {
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "description": "Project ID to delete"
+      },
+      "deleteTasks": {
+        "type": "boolean",
+        "description": "Also delete all tasks in this project"
+      }
+    },
+    "required": [
+      "projectId"
+    ]
   },
   "addTag": {
     "type": "object",
     "properties": {
-      "title": {"type": "string"},
-      "color": {"type": "string"}
+      "title": {
+        "type": "string",
+        "description": "Tag title"
+      },
+      "color": {
+        "type": "string",
+        "description": "Tag color (hex)"
+      }
     },
-    "required": ["title"]
+    "required": [
+      "title"
+    ]
   },
   "updateTag": {
     "type": "object",
     "properties": {
-      "tagId": {"type": "string"},
-      "title": {"type": "string"},
-      "color": {"type": "string"}
+      "tagId": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "color": {
+        "type": "string"
+      }
     },
-    "required": ["tagId"]
+    "required": []
+  },
+  "showSnack": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      }
+    },
+    "required": []
+  },
+  "notify": {
+    "type": "object",
+    "properties": {
+      "message": {
+        "type": "string"
+      }
+    },
+    "required": []
+  },
+  "openDialog": {
+    "type": "object",
+    "properties": {
+      "dialogConfig": {
+        "type": "object"
+      }
+    },
+    "required": []
+  },
+  "persistDataSynced": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string"
+      },
+      "data": {
+        "type": "string"
+      }
+    },
+    "required": []
+  },
+  "loadSyncedData": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string"
+      }
+    },
+    "required": []
   }
 }

@@ -22,7 +22,7 @@ Make sure to backup your Super Productivity before using in case of data loss.
 
 3. Configure Claude Desktop:
    ```json
-   "super-productivity": {
+   "sp": {
      "command": "python3",
      "args": [
        "/path/to/superp_mcp/superp_mcp_server.py"
@@ -55,6 +55,8 @@ Commands are exchanged through `plugin_commands/` and `plugin_responses/` subdir
 
 ## Usage
 
+All tools use camelCase names matching the Super Productivity PluginAPI actions (e.g., `addtask`, `deletetask`, `deleteproject`).
+
 ### Creating Tasks
 ```
 "Create a task to review the quarterly budget #finance +work"
@@ -77,10 +79,18 @@ Commands are exchanged through `plugin_commands/` and `plugin_responses/` subdir
 #### Task Deletion Options
 | Option | Description |
 |--------|-------------|
-| `task_id` | Delete a single task by ID |
-| `task_ids` | Delete multiple tasks at once |
-| `clear_all` | Delete ALL tasks (including incomplete) - **use with caution** |
+| `taskId` | Delete a single task by ID |
+| `taskIds` | Delete multiple tasks at once |
+| `clearAll` | Delete ALL tasks (including incomplete) - **use with caution** |
 | Default | Delete all completed tasks if no parameters provided |
+
+#### Delete Tasks in Project
+Delete all tasks belonging to a specific project:
+```json
+{
+  "projectId": "项目ID"
+}
+```
 
 ### Project Management
 ```
@@ -90,6 +100,8 @@ Commands are exchanged through `plugin_commands/` and `plugin_responses/` subdir
 "Update project 'Website' with description 'New redesign'"
 "Update project 'Website' with color '#FF5722'"
 ```
+
+> **Note**: Direct project deletion is not supported via PluginAPI. Use archive instead, or delete in the Super Productivity UI.
 
 ### Tag Management
 ```
@@ -101,6 +113,11 @@ Commands are exchanged through `plugin_commands/` and `plugin_responses/` subdir
 ### Notifications
 ```
 "Show notification 'Task completed!'"
+```
+
+### Batch Operations
+```
+"Batch create projects with tasks"
 ```
 
 ## Dashboard
