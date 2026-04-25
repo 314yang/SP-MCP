@@ -38,16 +38,27 @@ jobs:
           # List packaged files
           ls -la release/
           
-      - name: Copy mcp_server.py
+      - name: Copy superp_mcp files
         run: |
-          cp mcp_server.py release/
+          mkdir -p release/superp_mcp
+          cp superp_mcp_server.py release/superp_mcp/
+          if [ -f superp_mcp_schemas.json ]; then
+            cp superp_mcp_schemas.json release/superp_mcp/
+            echo "Including superp_mcp_schemas.json"
+          fi
           ls -la release/
+          ls -la release/superp_mcp/
           
+      - name: Package superp_mcp directory
+        run: |
+          cd release && zip -r superp_mcp.zip superp_mcp/
+          ls -la release/
+           
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release/mcp_server.py
+            release/superp_mcp.zip
             release/superp-mcp-plugin.zip
           generate_release_notes: true
         env:

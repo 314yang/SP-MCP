@@ -1,0 +1,69 @@
+{
+  "addTask": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "notes": {"type": "string"},
+      "timeEstimate": {"type": "number"},
+      "projectId": {"type": "string"},
+      "parentId": {"type": "string", "description": "For subtasks"},
+      "tagIds": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["title"]
+  },
+  "updateTask": {
+    "type": "object",
+    "properties": {
+      "taskId": {"type": "string"},
+      "title": {"type": "string"},
+      "notes": {"type": "string"},
+      "isDone": {"type": "boolean"}
+    },
+    "required": ["taskId"]
+  },
+  "getTasks": {
+    "type": "object",
+    "properties": {
+      "projectId": {"type": "string"},
+      "tagId": {"type": "string"},
+      "includeDone": {"type": "boolean"}
+    }
+  },
+  "addProject": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "description": {"type": "string"},
+      "color": {"type": "string"}
+    },
+    "required": ["title"]
+  },
+  "updateProject": {
+    "type": "object",
+    "properties": {
+      "projectId": {"type": "string"},
+      "title": {"type": "string"},
+      "description": {"type": "string"},
+      "color": {"type": "string"},
+      "isArchived": {"type": "boolean"}
+    },
+    "required": ["projectId"]
+  },
+  "addTag": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "color": {"type": "string"}
+    },
+    "required": ["title"]
+  },
+  "updateTag": {
+    "type": "object",
+    "properties": {
+      "tagId": {"type": "string"},
+      "title": {"type": "string"},
+      "color": {"type": "string"}
+    },
+    "required": ["tagId"]
+  }
+}

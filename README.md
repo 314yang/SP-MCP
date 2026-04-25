@@ -2,14 +2,9 @@
 
 Bridge between the amazing [Super Productivity](https://github.com/johannesjo/super-productivity/) app and MCP (Model Context Protocol) servers for Claude Desktop integration.
 
-This MCP and plugin allows Claude Desktop to directly interact with Super Productivity through the MCP protocol. Create update,tasks, manage projects and tags, and get information from Super Productivity.
+This MCP and plugin allows Claude Desktop to directly interact with Super Productivity through the MCP protocol. Create, update, tasks, manage projects and tags, and get information from Super Productivity.
 
-Make sure to backup your Super Productivity before using in case of data loss. I've provided a plugin.zip for convenience but feel free to make your own from the files.
-
-## Demo
-
-https://github.com/user-attachments/assets/cc118173-023f-48cb-8213-427027e475af
-
+Make sure to backup your Super Productivity before using in case of data loss.
 
 ## Requirements
 
@@ -19,52 +14,44 @@ https://github.com/user-attachments/assets/cc118173-023f-48cb-8213-427027e475af
 
 ## Installation
 
-### Automatic Setup
-
-**Windows:**
-1. Clone this repo
-2. Run `setup.bat`
-3. Follow the prompts
-
-**Linux/Mac UNTESTED:**
-1. Clone this repo
-2. Run `chmod +x setup.sh && ./setup.sh`
-3. Follow the prompts
-
-The setup scripts will preserve any existing MCP servers in your Claude Desktop configuration.
-
-You'll still have to install the plugin.zip manually in Super Productivity in settings->plugins.
-
-Once that's done, restart claude (and Super Prod for good measure) and you should be able to access your files
-
-### Manual Setup
-
-1. **Install Python dependencies:**
+1. Download `superp_mcp.zip` from GitHub releases
+2. Extract to current directory:
    ```bash
-   pip install mcp
+   unzip superp_mcp.zip
    ```
 
-2. **Set up MCP server:**
-   Copy `mcp_server.py` to your data directory:
-   - Windows: `%APPDATA%\super-productivity-mcp\`
-   - Linux/WSL: `/mnt/d/dev/super-productivity-mcp/`
-   - macOS: `~/Library/Application Support/super-productivity-mcp/`
-
-3. **Configure Claude Desktop:**
-   Edit Claude's config file and add to `mcpServers`:
+3. Configure Claude Desktop:
    ```json
    "super-productivity": {
      "command": "python3",
-     "args": ["/path/to/mcp_server.py"]
+     "args": [
+       "/path/to/superp_mcp/superp_mcp_server.py"
+     ],
+     "env": {
+       "SP_MCP_BASE_DIR_LINUX": "/custom/path"
+     }
    }
    ```
+   - `env` is optional - defaults to system data directory
 
 4. **Install the plugin:**
    - Open Super Productivity → Settings → Plugins
    - Click "Upload Plugin"
-   - Select `plugin.js`
+   - Select `superp-mcp-plugin.zip`
 
 5. **Restart Claude Desktop**
+
+## Data & Communication
+
+The data directory stores plugin commands and responses. It's created automatically on first run:
+
+- Windows: `%APPDATA%\super-productivity-mcp\`
+- Linux: `~/.local/share/super-productivity-mcp/`
+- macOS: `~/Library/Application Support/super-productivity-mcp/`
+
+Override via `SP_MCP_BASE_DIR_WINDOWS` or `SP_MCP_BASE_DIR_LINUX` environment variables.
+
+Commands are exchanged through `plugin_commands/` and `plugin_responses/` subdirectories.
 
 ## Usage
 
@@ -123,15 +110,6 @@ Access the SP-MCP dashboard from the menu. The dashboard shows:
 - Connection status
 - Activity logs
 - Settings (polling frequency: default 2 seconds)
-
-## Communication
-
-The plugin uses file-based communication through:
-- Windows: `%APPDATA%\super-productivity-mcp\`
-- Linux/WSL: `/mnt/d/dev/super-productivity-mcp/`
-- macOS: `~/Library/Application Support/super-productivity-mcp/`
-
-Commands are exchanged through `plugin_commands/` and `plugin_responses/` directories.
 
 ## Troubleshooting
 
