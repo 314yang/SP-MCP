@@ -692,11 +692,7 @@ async setupMCPCommunication() {
           result = await PluginAPI.loadSyncedData(command.key);
           break;
 
-        // Custom batch operations
-        case 'batchOperation':
-          result = await this.executeBatchOperation(command.operations);
-          break;
-          
+// Custom batch operations
         default:
           throw new Error(`Unknown command action: ${command.action}`);
       }
@@ -733,38 +729,6 @@ async setupMCPCommunication() {
       
       this.stats.errors++;
     }
-  }
-
-  async executeBatchOperation(operations) {
-    const results = [];
-    
-    for (const op of operations) {
-      try {
-        let result;
-        
-        switch (op.action) {
-          case 'addTask':
-            result = await PluginAPI.addTask(op.data);
-            break;
-          case 'updateTask':
-            result = await PluginAPI.updateTask(op.taskId, op.data);
-            break;
-          case 'addProject':
-            result = await PluginAPI.addProject(op.data);
-            break;
-          // Add more batch operations as needed
-          default:
-            throw new Error(`Unsupported batch operation: ${op.action}`);
-        }
-        
-        results.push({ success: true, result: result });
-        
-      } catch (error) {
-        results.push({ success: false, error: error.message });
-      }
-    }
-    
-    return results;
   }
 
   async writeCommandResponse(commandId, response) {
