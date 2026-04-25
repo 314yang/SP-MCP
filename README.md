@@ -50,9 +50,27 @@ The data directory stores plugin commands and responses. It's created automatica
 - Linux: `~/.local/share/super-productivity-mcp/`
 - macOS: `~/Library/Application Support/super-productivity-mcp/`
 
-Override via `SP_MCP_BASE_DIR_WINDOWS` or `SP_MCP_BASE_DIR_LINUX` environment variables.
-
 Commands are exchanged through `plugin_commands/` and `plugin_responses/` subdirectories.
+
+### Configuration
+
+**MCP Server** - Configure via environment variables:
+```json
+"sp": {
+  "command": "python3",
+  "args": ["/path/to/superp_mcp/superp_mcp_server.py"],
+  "env": {
+    "SP_MCP_BASE_DIR_WINDOWS": "D:\\mcp-data",
+    "SP_MCP_BASE_DIR_LINUX": "/home/user/mcp-data"
+  }
+}
+```
+
+**Plugin Dashboard** - Configure separately from the Super Productivity menu:
+- Open SP-MCP Dashboard
+- Enter base directory path (e.g., `D:\mcp-data` on Windows, `/home/user/mcp-data` on Linux)
+
+**Important**: Both MCP server and plugin must use the same directory path to communicate. Configure them separately but identically.
 
 ## Usage
 
@@ -123,27 +141,27 @@ Delete all tasks belonging to a specific project:
 
 ## Dashboard
 
-Access the SP-MCP dashboard from the menu. The dashboard shows:
+Access the SP-MCP dashboard from the Super Productivity menu. The dashboard shows:
 - Real-time statistics
 - Connection status
 - Activity logs
-- Settings (polling frequency: default 2 seconds)
+- MCP directories (MCP Directory, Commands Dir, Responses Dir)
+- Settings configuration
 
 ### Base Directory Configuration
 
-Configure the MCP data directory from the dashboard UI:
+Configure the MCP data directory separately from the MCP server:
 
 1. Open the SP-MCP Dashboard from the menu
-2. Enter a path in the "Base Directory" field:
-   - **Windows**: Enter `%APPDATA%` for `C:\Users\<username>\AppData\Roaming`, or a custom path like `D:\dev`
-   - **Linux**: Enter `~/.local/share` or a custom path like `/home/user/data`
-   - **Custom**: Any directory path
+2. Enter your base directory path in the "Base Directory" field:
+   - **Windows**: Custom path like `D:\mcp-data` (use `%APPDATA%` for standard location)
+   - **Linux**: Custom path like `/home/user/mcp-data`
 
-3. Click outside the input field to save
+3. Press Enter or click outside the input field to save
 
-The configured path will be used to create `super-productivity-mcp/` subdirectory with `plugin_commands/` and `plugin_responses/` folders.
+The configured path creates the `super-productivity-mcp/` subdirectory with `plugin_commands/` and `plugin_responses/` folders.
 
-If no path is configured, the plugin will show empty paths. Configure a path to enable MCP communication.
+**Note**: The plugin dashboard and MCP server have separate configurations. For them to communicate, you must configure both to use the same directory path.
 
 ## Troubleshooting
 
